@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 
 import catalog_app
@@ -25,7 +27,7 @@ def run(tmp_path, inputs):
     return cli, presenter
 
 
-# ---------- ArgParser ----------
+#  ArgParser 
 
 def test_parser_splits_command_and_rest():
     assert ArgParser().parse_args("show Hu Tao") == Args("show", "Hu Tao")
@@ -43,7 +45,7 @@ def test_parser_empty_line():
     assert ArgParser().parse_args("   ") == Args("", "")
 
 
-# ---------- CLIGraphic ----------
+#  CLIGraphic 
 
 def test_graphic_messages():
     assert CLIGraphic.success("ок") == "[Успіх] ок"
@@ -83,7 +85,7 @@ def test_graphic_table_without_rows():
     assert len(CLIGraphic.table(["А", "Б"], []).splitlines()) == 2
 
 
-# ---------- Renderers ----------
+#  Renderers 
 
 def test_renderer_is_abstract():
     with pytest.raises(TypeError):
@@ -120,7 +122,7 @@ def test_command_list_renderer():
     assert "Команда" in text and "показати" in text
 
 
-# ---------- CLI facade ----------
+#  CLI facade 
 
 def test_cli_without_strategy_reports_error():
     presenter = ScriptedPresenter()
@@ -189,7 +191,7 @@ def test_cli_run_stops_on_ctrl_c(tmp_path):
     cli.run()  # не має впасти
 
 
-# ---------- Strategy ----------
+#  Strategy 
 
 def test_strategy_is_abstract():
     with pytest.raises(TypeError):
@@ -200,7 +202,7 @@ def test_strategy_lists_registered_commands():
     strategy = CatalogStrategy(CharacterCatalog(), CatalogStorage("x"))
 
     assert strategy.get_command_selectors() == [
-        "list", "show", "create", "update", "save", "help", "exit"
+        "list", "show", "search", "create", "import", "update", "save", "help", "exit"
     ]
 
 
@@ -231,12 +233,12 @@ def test_strategy_returns_false_for_unknown_command():
     assert strategy.exec_command(None, Args("nope")) is False
 
 
-# ---------- Команди каталогу ----------
+#  Команди каталогу 
 
 def test_help_lists_all_commands(tmp_path):
     _, presenter = run(tmp_path, ["help"])
 
-    for name in ("list", "show", "create", "update", "save", "help", "exit"):
+    for name in ("list", "show", "search", "create", "import", "update", "save", "help", "exit"):
         assert name in presenter.output
 
 
@@ -394,7 +396,7 @@ def test_update_after_confirmation_discards_unsaved_changes(tmp_path):
     assert cli.strategy.catalog.dirty is False
 
 
-# ---------- Вихід ----------
+#  Вихід 
 
 def test_exit_without_changes_stops_immediately(tmp_path):
     cli, presenter = run(tmp_path, ["exit"])
@@ -437,7 +439,7 @@ def test_exit_stays_if_saving_fails(tmp_path):
     assert "Не вдалося зберегти" in presenter.output
 
 
-# ---------- Збирання застосунку (catalog_app) ----------
+#  Збирання застосунку (catalog_app) 
 
 def test_first_run_creates_file_with_defaults(tmp_path):
     make_cli(tmp_path)
@@ -482,3 +484,164 @@ def test_main_runs_and_exits(tmp_path, monkeypatch, capsys):
     output = capsys.readouterr().out
     assert "Каталог персонажів" in output
     assert "До побачення!" in output
+
+
+#  Рендерер без нумерації 
+
+def test_profile_list_renderer_without_numbers():
+    text = ProfileListRenderer(numbered=False).render([CharacterProfile("Amber")])
+
+    assert "№" not in text
+    assert "Amber" in text
+
+
+#  search 
+
+def test_search_by_text(tmp_path):
+    _, presenter = run(tmp_path, ["search pyro"])
+
+    assert "Знайдено: 3" in presenter.output
+    assert "Amber" in presenter.output and "Keqing" not in presenter.output
+
+
+def test_search_results_have_no_numbers(tmp_path):
+    _, presenter = run(tmp_path, ["search amber"])
+
+    assert "№" not in presenter.output
+
+
+def test_search_with_filters_and_sort(tmp_path):
+    _, presenter = run(tmp_path, ["search vision=pyro nation=mondstadt sort=name"])
+
+    assert "Знайдено: 2" in presenter.output
+    assert "Arlecchino" not in presenter.output
+
+
+def test_search_text_and_filter_together(tmp_path):
+    _, presenter = run(tmp_path, ["search dil vision=pyro"])
+
+    assert "Знайдено: 1" in presenter.output
+    assert "Diluc" in presenter.output
+
+
+def test_search_nothing_found(tmp_path):
+    _, presenter = run(tmp_path, ["search нічого"])
+
+    assert "Нічого не знайдено." in presenter.output
+
+
+def test_search_requires_text_or_criteria(tmp_path):
+    _, presenter = run(tmp_path, ["search"])
+
+    assert "Вкажіть текст або умови" in presenter.output
+
+
+def test_search_unknown_criterion(tmp_path):
+    _, presenter = run(tmp_path, ["search color=red"])
+
+    assert "Невідома умова: color" in presenter.output
+
+
+def test_search_unknown_sort_key(tmp_path):
+    _, presenter = run(tmp_path, ["search amber sort=rarity"])
+
+    assert "сортувати можна за" in presenter.output
+
+
+#  import 
+
+def write_json(tmp_path, text, name="api.json"):
+    file = tmp_path / name
+    file.write_text(text, encoding="utf-8")
+    return str(file)
+
+
+def test_import_adds_new_characters_and_skips_existing(tmp_path):
+    path = write_json(tmp_path, '[{"name": "Hu Tao", "vision": "Pyro"}, {"name": "Amber"}]')
+
+    cli, presenter = run(tmp_path, [f"import {path}"])
+
+    assert "Додано: 1, уже були в каталозі: 1, з помилками: 0." in presenter.output
+    assert cli.strategy.catalog.find("Hu Tao") is not None
+    assert cli.strategy.catalog.dirty is True
+    assert "введіть save" in presenter.output
+
+
+def test_import_reports_errors_but_keeps_good_items(tmp_path):
+    path = write_json(tmp_path, '[{"name": "Хтось"}, {"title": "без імені"}, 7]')
+
+    cli, presenter = run(tmp_path, [f"import {path}"])
+
+    assert "Додано: 1, уже були в каталозі: 0, з помилками: 2." in presenter.output
+    assert "елемент 2:" in presenter.output
+    assert cli.strategy.catalog.find("Хтось") is not None
+
+
+def test_import_shows_only_first_errors(tmp_path):
+    path = write_json(tmp_path, "[" + ",".join(["7"] * 9) + "]")
+
+    _, presenter = run(tmp_path, [f"import {path}"])
+
+    assert "з помилками: 9" in presenter.output
+    assert presenter.output.count("  - елемент") == 5
+
+
+def test_import_nothing_added_shows_no_save_hint(tmp_path):
+    path = write_json(tmp_path, '[{"name": "Amber"}]')
+
+    _, presenter = run(tmp_path, [f"import {path}"])
+
+    assert "Додано: 0" in presenter.output
+    assert "введіть save" not in presenter.output
+
+
+def test_import_requires_file_name(tmp_path):
+    _, presenter = run(tmp_path, ["import"])
+
+    assert "Вкажіть файл" in presenter.output
+
+
+def test_import_missing_file(tmp_path):
+    _, presenter = run(tmp_path, ["import немає.json"])
+
+    assert "Файл не знайдено: немає.json" in presenter.output
+
+
+def test_import_broken_json(tmp_path):
+    path = write_json(tmp_path, "{ зламано")
+
+    _, presenter = run(tmp_path, [f"import {path}"])
+
+    assert "Не вдалося імпортувати: файл не є коректним JSON" in presenter.output
+
+
+def test_import_wrong_top_level_type(tmp_path):
+    path = write_json(tmp_path, '"просто рядок"')
+
+    _, presenter = run(tmp_path, [f"import {path}"])
+
+    assert "Не вдалося імпортувати" in presenter.output
+
+
+def test_import_directory_reports_os_error(tmp_path):
+    _, presenter = run(tmp_path, [f"import {tmp_path}"])
+
+    assert "Не вдалося імпортувати" in presenter.output
+
+
+def test_import_then_save_survives_restart(tmp_path):
+    path = write_json(tmp_path, '[{"name": "Hu Tao", "vision": "Pyro"}]')
+    run(tmp_path, [f"import {path}", "save", "exit"])
+
+    _, presenter = run(tmp_path, ["list"])
+
+    assert "Hu Tao" in presenter.output
+
+
+def test_sample_file_from_repository_can_be_imported(tmp_path):
+    sample = str(Path(__file__).resolve().parent.parent / "samples" / "characters_api.json")
+
+    cli, presenter = run(tmp_path, [f"import {sample}"])
+
+    assert "з помилками: 0" in presenter.output
+    assert len(cli.strategy.catalog) == 4 + 7  # 9 у файлі, 2 з них уже є в стартовому наборі

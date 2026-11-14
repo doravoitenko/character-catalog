@@ -29,17 +29,22 @@ class ProfileRenderer(Renderer):
         return CLIGraphic.box(profile.name, rows)
 
 
-# Таблиця зі списком усіх персонажів
+# Таблиця зі списком персонажів. Номери показуємо лише для повного списку:
+# для результатів пошуку вони були б оманливими (show працює з номерами каталогу).
 class ProfileListRenderer(Renderer):
+
+    def __init__(self, numbered=True):
+        self.numbered = numbered
 
     def render(self, profiles):
         if not profiles:
             return "Каталог порожній."
-        rows = [
-            (str(number), p.name, p.vision or "—", p.weapon or "—", p.nation or "—")
-            for number, p in enumerate(profiles, 1)
-        ]
-        return CLIGraphic.table(["№", "Ім'я", "Стихія", "Зброя", "Країна"], rows)
+        headers = ["Ім'я", "Стихія", "Зброя", "Країна"]
+        rows = [(p.name, p.vision or "—", p.weapon or "—", p.nation or "—") for p in profiles]
+        if self.numbered:
+            headers.insert(0, "№")
+            rows = [(str(number), *row) for number, row in enumerate(rows, 1)]
+        return CLIGraphic.table(headers, rows)
 
 
 # Таблиця доступних команд (для help); приймає трійки (команда, використання, опис)

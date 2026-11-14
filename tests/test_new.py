@@ -85,7 +85,7 @@ def test_weapon_to_dict():
     }
 
 
-# ---------- Тести equip (core/characters.py) ----------
+#  Тести equip (core/characters.py) 
 
 def test_character_has_no_weapon_by_default():
     character = Character("Аліса", 100, 25)

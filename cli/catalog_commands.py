@@ -1,6 +1,9 @@
 from cli.menu_commands import Command
 from cli.renderers import CommandListRenderer, ProfileListRenderer, ProfileRenderer
+from core.api_parser import CharacterApiParser
+from core.catalog import FILTER_FIELDS, CatalogFilter
 from core.profile import CharacterProfile
+from infra.json_source import JsonFileSource
 
 YES = ("y", "yes", "т", "так")
 NO = ("n", "no", "н", "ні")
@@ -80,6 +83,80 @@ class ShowCommand(CatalogCommand):
             self.cli.error(f"Персонажа «{query}» не знайдено. Введіть list.")
             return
         self.cli.display(profile, ProfileRenderer())
+
+
+class SearchCommand(CatalogCommand):
+    usage = "search <текст> [vision=..] [weapon=..] [nation=..] [sort=..]"
+    description = "пошук за будь-яким полем, фільтри й сортування"
+
+    def execute(self):
+        words, criteria = [], {}
+        for word in self.args.rest.split():
+            key, separator, value = word.partition("=")
+            if separator:
+                criteria[key.lower()] = value
+            else:
+                words.append(word)
+        if not words and not criteria:
+            self.cli.error("Вкажіть текст або умови: search amber, search vision=pyro sort=nation")
+            return
+        unknown = [key for key in criteria if key not in (*FILTER_FIELDS, "sort")]
+        if unknown:
+            self.cli.error(f"Невідома умова: {unknown[0]}. Доступні: {', '.join(FILTER_FIELDS)}, sort")
+            return
+        try:
+            found = self.catalog.query(CatalogFilter(
+                text=" ".join(words),
+                vision=criteria.get("vision", ""),
+                weapon=criteria.get("weapon", ""),
+                nation=criteria.get("nation", ""),
+                sort_by=criteria.get("sort", "name"),
+            ))
+        except ValueError as error:
+            self.cli.error(str(error))
+            return
+        if not found:
+            self.cli.show("Нічого не знайдено.")
+            return
+        self.cli.show(f"Знайдено: {len(found)}")
+        self.cli.display(found, ProfileListRenderer(numbered=False))
+
+
+class ImportCommand(CatalogCommand):
+    usage = "import <файл>"
+    description = "додати персонажів із JSON-файлу у форматі API"
+
+    # Скільки помилок показувати, щоб не засмітити екран
+    MAX_ERRORS_SHOWN = 5
+
+    def __init__(self, cli, catalog, storage, args):
+        super().__init__(cli, catalog, storage, args)
+        self.source = JsonFileSource()
+        self.parser = CharacterApiParser()
+
+    def execute(self):
+        path = self.args.rest
+        if not path:
+            self.cli.error("Вкажіть файл: import <файл>")
+            return
+        try:
+            result = self.parser.parse(self.source.read(path))
+        except FileNotFoundError:
+            self.cli.error(f"Файл не знайдено: {path}")
+            return
+        except (OSError, ValueError) as error:
+            self.cli.error(f"Не вдалося імпортувати: {getattr(error, 'strerror', None) or error}")
+            return
+        added, skipped = self.catalog.merge(result.profiles)
+        self.cli.success(
+            f"Додано: {len(added)}, уже були в каталозі: {len(skipped)}, "
+            f"з помилками: {len(result.errors)}."
+        )
+        for message in result.errors[:self.MAX_ERRORS_SHOWN]:
+            self.cli.show(f"  - {message}")
+        if added:
+            self.cli.display(added, ProfileListRenderer(numbered=False))
+            self.cli.show("Щоб запам'ятати, введіть save.")
 
 
 class CreateCommand(CatalogCommand):

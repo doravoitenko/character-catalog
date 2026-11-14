@@ -4,8 +4,10 @@ from cli.catalog_commands import (
     CreateCommand,
     ExitCommand,
     HelpCommand,
+    ImportCommand,
     ListCommand,
     SaveCommand,
+    SearchCommand,
     ShowCommand,
     UpdateCommand,
 )
@@ -55,7 +57,9 @@ class CatalogStrategy(CommandStrategy):
         self.storage = storage
         self.register_command("list", ListCommand)
         self.register_command("show", ShowCommand)
+        self.register_command("search", SearchCommand)
         self.register_command("create", CreateCommand)
+        self.register_command("import", ImportCommand)
         self.register_command("update", UpdateCommand)
         self.register_command("save", SaveCommand)
         self.register_command("help", HelpCommand)

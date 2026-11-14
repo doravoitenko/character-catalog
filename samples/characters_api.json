@@ -1,0 +1,11 @@
+[
+    {"name": "Amber", "title": "Outrider", "vision": "Pyro", "weapon": "Bow", "nation": "Mondstadt", "gender": "Female", "rarity": 4},
+    {"name": "Diluc", "title": "Dark Side of Dawn", "vision": "Pyro", "weapon": "Claymore", "nation": "Mondstadt", "gender": "Male", "rarity": 5},
+    {"name": "Hu Tao", "title": "Fragrance in Thaw", "vision": "Pyro", "weapon": "Polearm", "nation": "Liyue", "gender": "Female", "rarity": 5},
+    {"name": "Ganyu", "title": "Plenilune Gaze", "vision": "Cryo", "weapon": "Bow", "nation": "Liyue", "gender": "Female", "rarity": 5},
+    {"name": "Raiden Shogun", "title": "Plane of Euthymia", "vision": "Electro", "weapon": "Polearm", "nation": "Inazuma", "gender": "Female", "rarity": 5},
+    {"name": "Zhongli", "title": "Vago Mundo", "vision": "Geo", "weapon": "Polearm", "nation": "Liyue", "gender": "Male", "rarity": 5},
+    {"name": "Venti", "title": "Windborne Bard", "vision": "Anemo", "weapon": "Bow", "nation": "Mondstadt", "gender": "Male", "rarity": 5},
+    {"name": "Xiao", "title": "Vigilant Yaksha", "vision": "Anemo", "weapon": "Polearm", "nation": "Liyue", "gender": "Male", "rarity": 5},
+    {"name": "Traveler"}
+]

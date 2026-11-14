@@ -4,6 +4,11 @@ from dataclasses import asdict, dataclass
 FIELDS = ("name", "title", "vision", "weapon", "nation", "image_url")
 
 
+def name_key(name):
+    # Ключ для порівняння імен: без урахування регістру й зайвих пробілів
+    return " ".join(name.split()).casefold()
+
+
 # Картка одного персонажа каталогу (модель шару бізнес-логіки).
 # Усі перевірки даних зібрані саме тут, тому створити некоректну картку неможливо.
 @dataclass
